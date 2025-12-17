@@ -1,116 +1,146 @@
 import { addInteraction, updateDisplay, reset, counterInstance } from './counter.js';
 
-// Mapa para rastrear el estado de las teclas presionadas (necesario para detectar combinaciones)
+// Mapa para rastrear el estado de las teclas presionadas
 const pressedKeys = {};
-// 🚨 NUEVO: Mapa para rastrear si la interacción ya fue contada en este ciclo de keydown
 const keyCounted = {}; 
 
 // ---------------------------------------------------------------------
 // 1. Detección de Entorno y Configuración de UI
 // ---------------------------------------------------------------------
-// Verificamos si la página actual contiene el canvas de Unity. Si lo tiene, es una escena de juego.
 const isUnityScene = document.getElementById('unity-canvas') !== null;
 const statusElement = document.getElementById('current-status');
 const detectorElement = document.getElementById('interaction-detector');
 const toggleButton = document.getElementById('toggle-button');
 const resetButton = document.getElementById('reset-button');
+const finishButton = document.getElementById('finish-button'); 
+const detectorToggleButton = document.getElementById('detector-toggle-btn'); // Botón del menú
+const detectorCloseButton = document.getElementById('detector-close-btn'); // Botón para cerrar menú
+const detectorContent = document.getElementById('detector-content'); // Contenido del menú
 
-// Inicialización de estado: Siempre grabamos por defecto
+// 🚨 SOLUCIÓN DE LA RUTA: Definimos la URL de forma condicional/relativa
+let FORM_URL;
+
+if (isUnityScene) {
+    // Si estamos en una escena 3D (ej: /Modelos 3D/Cuarto_De_Rescate/Cuarto_De_Rescate.html)
+    // Necesitamos subir 2 niveles desde la carpeta de la escena para llegar a la raíz.
+    // Cuarto_De_Rescate.html sube a Modelos 3D/, luego sube a la raíz (donde está formulario.html)
+    FORM_URL = "../../encuesta.html"; 
+    
+    // NOTA: Si usaras una ruta absoluta (ej: /formulario.html), funcionaría,
+    // pero depende de que se sirva desde un servidor raíz. Usamos rutas relativas.
+    
+} else {
+    // Si estamos en carrucel.html (que está en la raíz)
+    // El script está en /js/, así que la ruta correcta para salir y llegar a formulario.html es ../
+    FORM_URL = "encuesta.html"; 
+}
+
+
 let isRecording = true; 
 
 if (!isUnityScene) {
-    // Si es el menú principal, actualizamos el texto de estado.
-    if (statusElement) {
-        statusElement.innerText = "En Menú (No cuenta interacciones)";
-    }
-    if (detectorElement) {
-        detectorElement.classList.add('is-menu');
-    }
+    if (statusElement) {
+        statusElement.innerText = "En Menú (No cuenta interacciones)";
+    }
+    if (detectorElement) {
+        detectorElement.classList.add('is-menu');
+    }
 }
 
 
 // ---------------------------------------------------------------------
-// 2. Lógica de Control (Pausar/Reiniciar)
+// 2. Lógica de Control (Pausar/Reiniciar/FINALIZAR)
 // ---------------------------------------------------------------------
 
 function toggleRecording() {
-    isRecording = !isRecording;
-    if (statusElement) {
-        statusElement.innerText = isRecording ? "Grabando" : "Pausado";
-    }
-    if (toggleButton) {
-        document.getElementById('button-icon').innerText = isRecording ? '⏸️' : '▶️';
-    }
+    isRecording = !isRecording;
+    if (statusElement) {
+        statusElement.innerText = isRecording ? "Grabando" : "Pausado";
+    }
+    if (toggleButton) {
+        document.getElementById('button-icon').innerText = isRecording ? '⏸️' : '▶️';
+    }
 }
 
 function handleReset() {
-    // Usamos el confirm() global, si no existe lo simulamos
-    if ((window.confirm || console.log)('¿Estás seguro de que quieres reiniciar el contador a cero?')) {
-        reset();
-        isRecording = true; // Reiniciar implica volver a grabar
-        if (statusElement) {
-            statusElement.innerText = "Grabando";
-        }
-        if (toggleButton) {
-            document.getElementById('button-icon').innerText = '⏸️';
-        }
-    }
+    if ((window.confirm || console.log)('¿Estás seguro de que quieres reiniciar el contador a cero?')) {
+        reset();
+        isRecording = true;
+        if (statusElement) {
+            statusElement.innerText = "Grabando";
+        }
+        if (toggleButton) {
+            document.getElementById('button-icon').innerText = '⏸️';
+        }
+    }
 }
+
+// FUNCIÓN CLAVE: Maneja el clic en el botón de finalizar
+function handleFinish() {
+    if (!(window.confirm || console.log)('¿Deseas finalizar la interacción y acceder a la encuesta?')) {
+        return;
+    }
+    
+    reset();
+    
+    // Usa la URL definida condicionalmente arriba.
+    window.location.replace(FORM_URL); 
+}
+
+// FUNCIÓN PARA EL MENÚ DESPLEGABLE
+function toggleDetectorMenu() {
+    const isOpen = detectorElement.classList.toggle('is-open');
+    const arrow = document.getElementById('detector-arrow');
+    if (arrow) {
+        arrow.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)'; // La flecha sigue girando
+    }
+    // --- INICIO: Lógica para mostrar/ocultar botones ---
+    // Si el menú está abierto, oculta el botón de abrir (▼). Si está cerrado, lo muestra.
+    if (detectorToggleButton) detectorToggleButton.style.display = isOpen ? 'none' : 'block';
+    // --- FIN: Lógica para mostrar/ocultar botones ---
+}
+
 
 // ---------------------------------------------------------------------
 // 3. Lógica de Teclado y Conteo
 // ---------------------------------------------------------------------
 
-// Handler que se ejecuta al presionar una tecla
 function handleKeyDown(event) {
-    const key = event.key.toLowerCase();
-    
-    // Guardamos el estado de la tecla presionada
-    pressedKeys[key] = true;
+    const key = event.key.toLowerCase();
+    
+    pressedKeys[key] = true;
 
-    // Prevenimos el comportamiento por defecto de 'espacio', 'w' y 'g'
-    if (key === ' ' || key === 'w' || key === 'g') {
-        event.preventDefault();
-    }
+    if (key === ' ' || key === 'w' || key === 'g') {
+        event.preventDefault();
+    }
 
-    // Lógica CONDICIONAL de Conteo:
-    // 1. Solo contamos si estamos en una escena de Unity
-    // 2. Solo contamos si el contador no está pausado
-    if (!isUnityScene || !isRecording) {
-        return; 
-    }
+    if (!isUnityScene || !isRecording) {
+        return; 
+    }
 
-    // Lógica de conteo: Contar si se presionó 'espacio' Y al mismo tiempo 'w' o 'g'
-    if (pressedKeys[' ']) {
-        const targetKeys = ['w', 'g'];
-        if (targetKeys.includes(key)) {
-            // Creamos una clave única para la combinación (ej: "space+w" o "space+g")
-            const comboKey = `space+${key}`; 
-
-            // 🚨 SOLUCIÓN AL BUG DE AUTO-REPETICIÓN
-            // Solo contamos si esta combinación NO ha sido contada todavía
-            if (!keyCounted[comboKey]) {
-                addInteraction(key); // Llama a la función de contador.
-                keyCounted[comboKey] = true; // Marcamos como contado
-            }
-        }
-    }
+    if (pressedKeys[' ']) {
+        const targetKeys = ['w', 'g'];
+        if (targetKeys.includes(key)) {
+            const comboKey = `space+${key}`; 
+            if (!keyCounted[comboKey]) {
+                addInteraction(key);
+                keyCounted[comboKey] = true;
+            }
+        }
+    }
 }
 
-// Handler que se ejecuta al soltar una tecla
 function handleKeyUp(event) {
-    const key = event.key.toLowerCase();
-    pressedKeys[key] = false;
+    const key = event.key.toLowerCase();
+    pressedKeys[key] = false;
 
-    // 🚨 LIMPIEZA: Al soltar la tecla 'w' o 'g', reseteamos el flag de contado
-    if (key === 'w' || key === 'g') {
-        keyCounted[`space+${key}`] = false;
-    }
-    // 🚨 LIMPIEZA: Si suelta 'espacio', también reseteamos ambos flags por si acaso.
-    if (key === ' ') {
-        keyCounted['space+w'] = false;
-        keyCounted['space+g'] = false;
-    }
+    if (key === 'w' || key === 'g') {
+        keyCounted[`space+${key}`] = false;
+    }
+    if (key === ' ') {
+        keyCounted['space+w'] = false;
+        keyCounted['space+g'] = false;
+    }
 }
 
 // ---------------------------------------------------------------------
@@ -120,19 +150,30 @@ function handleKeyUp(event) {
 document.addEventListener('keydown', handleKeyDown);
 document.addEventListener('keyup', handleKeyUp);
 
-// Eventos para los botones de control
 if (toggleButton) {
-    toggleButton.addEventListener('click', toggleRecording);
+    toggleButton.addEventListener('click', toggleRecording);
 }
 if (resetButton) {
-    resetButton.addEventListener('click', handleReset);
+    resetButton.addEventListener('click', handleReset);
+}
+// EVENT LISTENER para el botón de finalizar
+if (finishButton) {
+    finishButton.addEventListener('click', handleFinish);
 }
 
-// Inicializar la visualización del contador al cargar la página (Importante para el menú)
+// EVENT LISTENER para el menú desplegable
+if (detectorToggleButton) {
+    detectorToggleButton.addEventListener('click', toggleDetectorMenu);
+}
+
+// EVENT LISTENER para el nuevo botón de cierre
+if (detectorCloseButton) {
+    detectorCloseButton.addEventListener('click', toggleDetectorMenu);
+}
+
 document.addEventListener('DOMContentLoaded', updateDisplay);
 
-// 🚨 CORRECCIÓN: Evita el uso de confirm() si no existe, simulándolo para evitar errores
 window.confirm = window.confirm || function(message) {
-    console.log("Simulación de confirmación: " + message);
-    return true; 
+    console.log("Simulación de confirmación: " + message);
+    return true; 
 };

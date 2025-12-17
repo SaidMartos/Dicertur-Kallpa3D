@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kallpa 3D - Lista de Turistas</title>
+    <title>Kallpa 3D - Lista De Usuarios</title>
     
-    <!-- Importamos la fuente Inter de Google Fonts -->
+    <link rel="icon" href="img/favicon.ico" type="image/x-icon"> 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- Estilos CSS Combinados (Diseño profesional y responsive) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
     <style>
         /* BASE Y FONDO */
         body {
@@ -36,7 +37,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5); 
+            background-color: rgba(0, 0, 0, 0); 
             backdrop-filter: blur(2px);
             z-index: 0;
         }
@@ -48,7 +49,7 @@
             border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
             width: 100%;
-            max-width: 1000px; /* Ancho mayor para la tabla */
+            max-width: 1300px; /* Ancho mayor para la tabla */
             box-sizing: border-box;
             position: relative; 
             margin: 40px auto;
@@ -60,9 +61,9 @@
             font-weight: 800;
             text-align: center;
             margin-bottom: 25px;
-            color: #17a2b8; /* Azul/Cyan */
+            color: #dc3545; /* Azul/Cyan */
             font-size: 2.2rem;
-            text-transform: uppercase;
+            /*text-transform: uppercase;*/
         }
 
         /* MENSAJES DE FEEDBACK */
@@ -89,6 +90,15 @@
             border-color: #f5c6cb;
         }
         
+        /* CONTENEDOR DE BOTONES (Atrás y Descargar) */
+        .action-buttons-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+        
         /* BOTONES DE ACCIÓN */
         .btn {
             display: inline-block;
@@ -107,25 +117,26 @@
         .btn-back {
             background-color: #6c757d;
             color: white;
-            margin-bottom: 20px;
+            /* width: auto; */
         }
         
         .btn-back:hover {
             background-color: #5a6268;
         }
         
-        /* Estilo para mostrar el ID de usuario */
+        .btn-excel {
+            background-color: #28a745; /* Color verde para Excel */
+            color: white;
+            /* width: auto; */
+        }
+        
+        .btn-excel:hover {
+            background-color: #1e7e34;
+        }
+
+        /* Estilo para mostrar el ID de usuario (OCULTADO) */
         #userIdDisplay {
-            font-size: 0.75rem;
-            color: #000;
-            background-color: rgba(255, 255, 255, 0.7);
-            padding: 5px 10px;
-            border-radius: 5px;
-            margin-bottom: 10px;
-            text-align: center;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            display: none;
         }
 
 
@@ -152,7 +163,7 @@
         }
 
         .turistas-table th {
-            background-color: #17a2b8;
+            background-color: #dc3545;
             color: white;
             font-weight: 700;
             text-transform: uppercase;
@@ -185,12 +196,18 @@
                 align-items: flex-start;
                 padding: 20px 10px;
             }
+            .action-buttons-container {
+                flex-direction: column;
+            }
+            .btn-back, .btn-excel {
+                width: 100%;
+            }
         }
         
         /* Loader simple */
         .loader {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #17a2b8;
+            border-top: 4px solid #dc3545;
             border-radius: 50%;
             width: 20px;
             height: 20px;
@@ -208,7 +225,6 @@
 </head>
 
 <body>
-    <!-- Importaciones de Firebase -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -216,31 +232,15 @@
         
         setLogLevel('Debug'); // Para ver logs en la consola
         
-        // ----------------------------------------------------------------------------------
-        // CONFIGURACIÓN DE FIREBASE (Asegurando la misma configuración que formulario.html)
-        // ----------------------------------------------------------------------------------
-        const appId = (typeof __app_id !== 'undefined' && __app_id) ? String(__app_id) : 'github-pages-default-id';
-        
-        // Configuración de Firebase local/fallback (Asumimos el mismo proyecto)
-        const LOCAL_FIREBASE_CONFIG = {
-             apiKey: "AIzaSyBifMbYtOkxsijnaKlTtl_S_A5dkzE32BM", 
-             authDomain: "prueba-ff7bb.firebaseapp.com",
-             projectId: "prueba-ff7bb", 
-             storageBucket: "prueba-ff7bb.appspot.com",
-             messagingSenderId: "700600586061",
-             appId: "1:700600586061:web:f1bfae76ae2ff3ed1db104"
-        }; 
+        import { firebaseConfig, appId } from './js/config.js';
 
-        const firebaseConfig = typeof __firebase_config !== 'undefined' && JSON.parse(__firebase_config).projectId 
-                               ? JSON.parse(__firebase_config) 
-                               : LOCAL_FIREBASE_CONFIG;
         
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         // ----------------------------------------------------------------------------------
         
         let db, auth;
-        let userId = null;
         let isAuthReady = false;
+        let lastLoadedTuristas = []; // Almacena la última lista cargada para la descarga
 
         // 1. Inicialización y Autenticación de Firebase
         try {
@@ -254,10 +254,8 @@
             // 2. Listener de estado de autenticación
             onAuthStateChanged(auth, async (user) => {
                 if (user) {
-                    userId = user.uid;
                     isAuthReady = true;
-                    document.getElementById('userIdDisplay').textContent = `Usuario ID: ${userId} | App ID: ${appId}`;
-                    // Iniciar la carga de datos una vez autenticado
+                    // Ya no se muestra el userIdDisplay
                     loadTuristasList(); 
                 } else {
                     // Intento de autenticación inicial (Custom Token o Anónimo)
@@ -314,7 +312,6 @@
 
         function loadTuristasList() {
             if (!db || !appId || !isAuthReady) {
-                // Si la función se llama antes de que Firebase esté listo, salimos
                 return;
             }
             
@@ -324,7 +321,7 @@
             
             const tableBody = document.getElementById('turistasTableBody');
             
-            tableBody.innerHTML = `<tr><td colspan="9" class="no-data"><span class="loader"></span> Cargando datos en tiempo real...</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="8" class="no-data"><span class="loader"></span> Cargando datos en tiempo real...</td></tr>`;
             
             // onSnapshot para escuchar cambios en tiempo real
             onSnapshot(q, (snapshot) => {
@@ -335,12 +332,13 @@
                 
                 // Ordenar por FechaRegistro descendente (último registro primero)
                 turistas.sort((a, b) => new Date(b.FechaRegistro) - new Date(a.FechaRegistro));
-
+                
+                lastLoadedTuristas = turistas; // Guardar para exportar
                 renderTable(turistas);
                 showMessage(`✅ Lista actualizada. Se muestran ${turistas.length} registros.`, true);
             }, (error) => {
                 console.error("Error al obtener datos de Firestore:", error);
-                tableBody.innerHTML = `<tr><td colspan="9" class="no-data" style="color: #dc3545;">❌ Error: No se pudieron cargar los datos. (Revisa la consola)</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="8" class="no-data" style="color: #dc3545;">❌ Error: No se pudieron cargar los datos. (Revisa la consola)</td></tr>`;
                 showMessage(`Error: No se pudieron cargar los datos. Mensaje: ${error.message}`, false);
             });
         }
@@ -350,35 +348,84 @@
             tableBody.innerHTML = ''; 
 
             if (turistas.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="9" class="no-data">No hay turistas registrados aún en la base de datos.</td></tr>`;
+                // El colspan debe ser 8, ya que quitamos la columna ID Reg. y agregamos Edad.
+                tableBody.innerHTML = `<tr><td colspan="8" class="no-data">No hay turistas registrados aún en la base de datos.</td></tr>`;
                 return;
             }
             
             turistas.forEach(turista => {
                 const row = tableBody.insertRow();
                 
+                // Mantenemos el mismo orden que en el <thead>
                 row.insertCell().textContent = turista.DNI_Carnet || '-';
                 row.insertCell().textContent = turista.Nombres || '-';
                 row.insertCell().textContent = turista.ApellidoPaterno || '-';
                 row.insertCell().textContent = turista.ApellidoMaterno || '-';
-                row.insertCell().textContent = turista.PaisOrigen || '-'; // Nuevo campo
+                row.insertCell().textContent = turista.Edad || '-'; // Nuevo Campo Edad
+                row.insertCell().textContent = turista.PaisOrigen || '-';
                 row.insertCell().textContent = turista.Telefono || '-';
                 row.insertCell().textContent = turista.Sexo || '-';
                 row.insertCell().textContent = formatDate(turista.FechaRegistro);
-                // Mostrar solo los primeros 8 caracteres del UID para identificar al registrador
-                row.insertCell().textContent = turista.RegistradoPor ? turista.RegistradoPor.substring(0, 8) + '...' : 'Anónimo'; 
+                // La columna ID Reg. (RegistradoPor) ya no se inserta
             });
         }
+        
+        // --- Lógica de Exportación a Excel ---
+        function exportToExcel() {
+            if (lastLoadedTuristas.length === 0) {
+                showMessage('No hay datos para exportar.', false);
+                return;
+            }
+
+            const header = [
+                "DNI/Carnet", "Nombres", "A. Paterno", "A. Materno", "Edad", 
+                "País Origen", "Teléfono", "Sexo", "Fecha Registro"
+            ];
+
+            const data = lastLoadedTuristas.map(turista => [
+                turista.DNI_Carnet || '',
+                turista.Nombres || '',
+                turista.ApellidoPaterno || '',
+                turista.ApellidoMaterno || '',
+                turista.Edad || '', // Campo Edad
+                turista.PaisOrigen || '',
+                turista.Telefono || '',
+                turista.Sexo || '',
+                formatDate(turista.FechaRegistro)
+            ]);
+            
+            // Combinar encabezados y datos
+            const wsData = [header, ...data];
+
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Turistas");
+
+            // Crear el nombre del archivo con fecha
+            const date = new Date();
+            const dateStr = `${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}`;
+            const fileName = `Kallpa3D_Turistas_${dateStr}.xlsx`;
+            
+            XLSX.writeFile(wb, fileName);
+            showMessage('✅ Exportación a Excel completada.', true);
+        }
+
+        // Asignación de evento al botón de descarga
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('btnExportExcel').addEventListener('click', exportToExcel);
+        });
 
     </script>
 
     <div class="container-box">
-        <h2 class="text-center">REGISTRO DE TURISTAS KALLPA 3D</h2>
+        <h2 class="text-center">Registro De Usuarios De Kallpa 3D</h2>
         
-        <div id="userIdDisplay">Conectando...</div>
         <div id="messageContainer" class="message-box"></div>
         
-        <a href="formulario.html" class="btn btn-back">← Volver al Formulario</a>
+        <div class="action-buttons-container">
+            <a href="formulario.html" class="btn btn-back">← Volver al Formulario</a>
+            <button id="btnExportExcel" class="btn btn-excel">Descargar en Excel 📊</button>
+        </div>
 
         <div class="table-responsive">
             <table class="turistas-table">
@@ -388,15 +435,13 @@
                         <th>Nombres</th>
                         <th>A. Paterno</th>
                         <th>A. Materno</th>
-                        <th>País Origen</th>
+                        <th>Edad</th> <th>País Origen</th>
                         <th>Teléfono</th>
                         <th>Sexo</th>
                         <th>F. Registro</th>
-                        <th>ID Reg.</th>
-                    </tr>
+                        </tr>
                 </thead>
                 <tbody id="turistasTableBody">
-                    <!-- Los datos se insertarán aquí por JavaScript -->
                     <tr><td colspan="9" class="no-data">Esperando conexión de Firebase...</td></tr>
                 </tbody>
             </table>

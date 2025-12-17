@@ -7,6 +7,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Detectar solo las tarjetas originales
     const originalCards = Array.from(document.querySelectorAll('.carousel-card'));
+
+    // --- INICIO: Añadir descripciones unificadas a las tarjetas ---
+    const descripcionesUnificadas = [ // Descripciones resumidas
+        "Visita el Cuarto del Rescate, único vestigio Inca en la ciudad y escenario de la promesa de un tesoro que Atahualpa ofreció por su libertad. Este lugar histórico marcó un punto de inflexión en el encuentro de dos mundos, definiendo el destino del imperio.", // Cuarto del Rescate
+        "Asciende al cerro de Santa Apolonia, el mirador natural más icónico de Cajamarca, para disfrutar de vistas panorámicas inigualables. Conecta con la historia al descubrir vestigios como la 'Silla del Inca' en un entorno lleno de misticismo y paz.", // Santa Apolonia
+        "Admira el Santuario de Polloc, una joya del arte religioso moderno. Sus fachadas e interior están adornados con impresionantes mosaicos de estilo italiano, creados por artesanos locales con piedras de la región, reflejando una profunda devoción popular.", // Iglesia de Polloc
+        "Explora las misteriosas Ventanillas de Otuzco, una necrópolis pre-incaica tallada en roca volcánica. Estas enigmáticas cavidades sirvieron como tumbas para las élites de la cultura Cajamarca, ofreciendo una ventana a sus antiguos rituales funerarios.", // Ventanillas de Otuzco
+    ];
+
+    originalCards.forEach((card, index) => {
+        const info = card.querySelector('.card-info');
+        const titulo = info.querySelector('h2');
+        if (titulo && descripcionesUnificadas[index]) {
+            const p = document.createElement('p');
+            // --- INICIO: Estilos para fondo difuminado y texto ---
+            p.textContent = descripcionesUnificadas[index];
+            p.style.fontSize = '1em';
+            p.style.color = 'rgba(255, 255, 255, 0.95)';
+            p.style.padding = '10px';
+            p.style.borderRadius = '10px';
+            p.style.backgroundColor = 'rgba(0, 0, 0, 0.2)'; // Fondo oscuro semitransparente
+            p.style.backdropFilter = 'blur(4px)'; // Efecto de desenfoque
+            p.style.webkitBackdropFilter = 'blur(4px)'; // Para compatibilidad con Safari
+            p.style.marginBottom = '20px'; // Un poco más de espacio antes del botón
+            titulo.insertAdjacentElement('afterend', p);
+        }
+    });
+    // --- FIN: Añadir descripciones unificadas ---
     
     // 🚩 PASO 1: DUPLICACIÓN DINÁMICA DE TARJETAS
     originalCards.forEach(card => {

@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Unity Web Player | Said</title>
-    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <title>Ventanillas De Otuzco | Kallpa 3D</title>
+    <link rel="icon" href="../../img/favicon.ico" type="image/x-icon"> 
     <link rel="stylesheet" href="TemplateData/style.css">
     <!-- 🚨 CAMBIO 1: ENLACE AL CSS DEL DETECTOR/MENÚ (Dos niveles arriba) -->
     <!-- Esto cargará los estilos para el detector de interacción flotante -->
@@ -162,23 +162,36 @@
       document.body.appendChild(script);
 
     </script>
-            
+    
     <!-- ****************************************************** -->
     <!-- BLOQUE DE CONTADOR DE INTERACCIONES FLOTANTE -->
     <!-- ****************************************************** -->
     <div id="interaction-detector">
-          <div id="controls-top">
-              <button id="toggle-button" aria-label="Pausar/Reproducir Contador">
-                  <span id="button-icon">⏸️</span>
-              </button>
-              <button id="reset-button" aria-label="Reiniciar Contadores">
-                  <span id="reset-icon">⏹️</span>
-              </button>
-          </div>
-          <div class="counter-display">
-              <h2>Interacciones: <span id="contador-total">0</span></h2>
-          </div>
-          <p id="status-text">Estado: <strong id="current-status">Grabando</strong></p>
+        <!-- BOTÓN PRINCIPAL PARA DESPLEGAR/OCULTAR -->
+        <button id="detector-toggle-btn" aria-label="Mostrar/Ocultar Controles">
+            <span id="detector-arrow">▼</span>
+        </button>
+        
+        <!-- CONTENIDO DESPLEGABLE (OCULTO POR DEFECTO) -->
+        <div id="detector-content">
+            <!-- BOTÓN PARA CERRAR EL MENÚ (DENTRO DEL PANEL) -->
+            <button id="detector-close-btn" aria-label="Ocultar Controles">
+                <span id="detector-close-icon">▲</span>
+            </button>
+            <div id="controls-top">
+                <button id="toggle-button" aria-label="Pausar/Reproducir Contador">
+                    <span id="button-icon">⏸️</span>
+                </button>
+                <button id="reset-button" aria-label="Reiniciar Contadores">
+                    <span id="reset-icon">⏹️</span>
+                </button>
+            </div>
+            <div class="counter-display">
+                <h2>Interacciones: <span id="contador-total">0</span></h2>
+            </div>
+            <p id="status-text">Estado: <strong id="current-status">Grabando</strong></p>
+            <button id="finish-button" class="btn-finish">Finalizar Interacción</button>
+        </div>
     </div>
       
     <!-- Scripts que manejan la persistencia (localStorage) y la lógica de conteo -->
